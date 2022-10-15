@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>局域网信息传输</title>
+</head>
+<style>
+    *{
+        padding: 0;
+        margin: 0;
+    }
+    html,body {
+        height: 100%;
+        width:100%;
+        font-family:"微软雅黑";
+        background-color: #b5b5b5;
+    }
+    .container{
+        height: 80%;
+        width: 80%;
+        position: absolute;
+        left: 10%;
+        top: 10%;
+    }
+    .main{
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+    }
+    .top{
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+    }
+    .top-left{
+        flex:2;
+        background-color: whitesmoke;
+        text-align: center;
+    }
+    .top-right{
+        flex:8;
+        background-color: whitesmoke;
+        margin-left: 5px;
+        text-align: center;
+    }
+    .bottom{
+        flex: 10;
+        display: flex;
+        flex-direction: row;
+        margin-top: 5px;
+    }
+    .bottom-left{
+        flex:2;
+        background-color: whitesmoke;
+        overflow-x: auto;
+    }
+    .bottom-right{
+        flex: 8;
+        display: flex;
+        flex-direction: column;
+        margin-left: 5px;
+    }
+    .chat-show{
+        flex: 8;
+        background-color: whitesmoke;
+        overflow: auto;
+    }
+    .chat-box{
+        flex: 2;
+        margin-top: 5px;
+        background-color: whitesmoke;
+        display: flex;
+        flex-direction: column;
+        padding: 5px;
+    }
+    span{
+        display:block;
+        position: relative;
+        top: 30%;
+    }
+    .user-list{
+        margin: 20px;
+        line-height: 1.5;
+        overflow-y: auto;
+    }
+    .user-list li{
+        overflow: hidden;
+        text-overflow:ellipsis;
+        white-space: nowrap;
+        list-style-type: none;
+    }
+    .chat-list{
+        margin: 20px;
+        line-height: 1.5;
+        overflow-y: auto;
+        word-wrap: break-word;
+        word-break: break-all;
+        overflow: hidden;
+    }
+    .chat-list li{
+        list-style-type: none;
+    }
+    .chat-list span{
+        font-weight: bold;
+    }
+    .font-self{
+        color: blue;
+    }
+    .send-content{
+        flex: 3;
+    }
+    .send-op{
+        flex: 1;
+        display: flex;
+        flex-direction: row;
+    }
+    .text-area{
+        width: 100%;
+        height: 100%;
+        font-size: 20px;
+    }
+    .nick-name{
+        flex: 2;
+    }
+    .send{
+        flex: 8;
+    }
+    .send-btn{
+        margin-left: 2px;
+        width: 100%;
+    }
+    .sys-error{
+        font-size: 10px;
+        color: red;
+    }
+    .sys-tip{
+        font-size: 10px;
+        color: green;
+    }
+</style>
+<body>
+<div class="container">
+    <div class="main">
+        <div class="top">
+            <div class="top-left">
+                <span class="info"></span>
+            </div>
+            <div class="top-right">
+                <span class="account"></span>
+            </div>
+        </div>
+        <div class="bottom">
+            <div class="bottom-left">
+                <ul class="user-list">
+                </ul>
+            </div>
+            <div class="bottom-right">
+                <div class="chat-show">
+                    <ul class="chat-list">
+                    </ul>
+                </div>
+                <div class="chat-box">
+                    <div class="send-content">
+                        <textarea class="text-area" placeholder="内容">
+
+                        </textarea>
+                    </div>
+                    <p style="text-align: center">-</p>
+                    <div class="send-op">
+                        <div class="nick-name">
+                          <input type="text" class="name-input" placeholder="主机名称">
+                        </div>
+                        <div class="send">
+                            <input type="button" class="send-btn" value="发送(shift+enter)" onclick="send()">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script type="application/javascript">
+
+
+    let ws = null
+
+    let userId = + new Date()
+
+    //通过此处修改ip地址达到局域网传输效果
+    let url = "ws://10.136.44.160:80/ws/" + userId
+
+    ws = new WebSocket(url)
+
+    ws.onopen = function(event){
+        addLiSysMsg("连接上服务器...",0)
+        openInit()
+    }
+
+    ws.onclose = function(event){
+        addLiSysMsg("关闭连接...",0)
+    }
+
+    ws.onerror = function(event){
+        addLiSysMsg("连接异常:",1)
+    }
+
+    ws.onmessage = function(event){
+        let msgObject = JSON.parse(event.data);
+        if(msgObject.type === 0){
+            //系统消息
+            setUsers(msgObject)
+        }else if(msgObject.type === 1){
+            addLi(msgObject)
+        }else if(msgObject.type === 2){
+            setRecords(msgObject.data)
+        }
+    }
+
+    document.onkeydown = function (event) {
+        e = event ? event : (window.event ? window.event : null)
+        if (e.shiftKey && e.keyCode == 13) {
+            send()
+        }
+    }
+
+    //打开时初始化
+    function openInit(){
+        let account = document.getElementsByClassName("account")[0]
+        account.innerHTML = "主机当前id:" + userId
+    }
+
+    function setRecords(recordMsg){
+        for(let i in recordMsg){
+            addLi(recordMsg[i])
+        }
+    }
+
+    function setUsers(sysMsg){
+        var userList = document.getElementsByClassName("user-list")[0]
+        userList.innerHTML = ""
+        for(let i in sysMsg.data){
+            userList.innerHTML += "<li>" + sysMsg.data[i] + "</li>"
+        }
+        let info = document.getElementsByClassName("info")[0]
+        info.innerHTML = sysMsg.msg
+    }
+
+    //滚动到最下面
+    function scroll() {
+        var ele = document.getElementsByClassName("chat-show")[0]
+        ele.scrollTop = ele.scrollHeight;
+    }
+
+    //添加消息记录
+    function addLi(msgObject){
+        let nickName = document.getElementsByClassName("name-input")[0].value.trim()
+        let mode = 0
+        if(msgObject.nickName.indexOf(userId) != -1){
+            mode = 1
+        }
+        let chatList = document.getElementsByClassName("chat-list")[0]
+        let name = msgObject.nickName
+        if(mode === 0){
+            chatList.innerHTML += "<span>" + msgObject.dateTime + "   "+ name +"</span><li>" + msgObject.msg + "</li>"
+        }else if(mode === 1){
+            chatList.innerHTML += "<span class='font-self'>" + msgObject.dateTime + "   "+ name +"</span><li>" + msgObject.msg + "</li>"
+        }
+        scroll()
+    }
+
+    // 添加系统消息
+    function addLiSysMsg(msg,mode){
+        let chatList = document.getElementsByClassName("chat-list")[0]
+        if(mode === 0){
+            chatList.innerHTML += "<li class='sys-tip'>" + msg + "</li>"
+        }else if(mode === 1){
+            chatList.innerHTML += "<li class='sys-error'>" + msg + "</li>"
+        }
+        scroll()
+    }
+
+    //发送消息
+    function send(){
+        let content = document.getElementsByClassName("text-area")[0].value.trim()
+        let nickName = document.getElementsByClassName("name-input")[0].value.trim()
+        if(content == ""){
+            alert("内容为空")
+            return
+        }
+        if(nickName == ""){
+            nickName = userId
+        }
+        if(nickName != userId){
+            nickName = "[" + userId +"]" + nickName
+        }
+        let msgObject = nickName + ":" + content
+        // 发送格式：  主机名称:消息
+        document.getElementsByClassName("text-area")[0].value = ""
+        ws.send(msgObject)
+
+    }
+</script>
+</body>
+</html>
